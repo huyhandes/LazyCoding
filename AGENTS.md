@@ -62,3 +62,17 @@ No framework — verification is behavioral:
 3. **New non-trivial logic**: leave exactly one runnable check — an `assert`-based `__main__` self-check or one small `test_*.py`. No fixtures, no frameworks.
 
 A skill that never fires is worse than an untested one.
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub Issues (huyhandes/LazyCoding). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at the repo root, created lazily. See `docs/agents/domain.md`.
