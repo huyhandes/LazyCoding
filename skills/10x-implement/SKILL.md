@@ -9,7 +9,7 @@ Implement the work described by the spec or tickets at 10x speed. You orchestrat
 Four multipliers do the work — name them, don't restate them:
 
 1. **Parallel AFK.** One message, one subagent call per chunk. Stay out of their way until they return.
-2. **A team, not clones.** Four roles on tiered models: `10x-scout` (cited evidence), `10x-coder` (ponytail ultra + tdd), `10x-merger` (conflicts and the seam), `10x-reviewer` (four headings). Briefs live in `agents/`; models and thinking levels live in the EDIT-ME block of `install.sh`.
+2. **A team, not clones.** Four roles on tiered models: `10x-scout` (cited evidence), `10x-coder` (ponytail ultra + tdd), `10x-merger` (conflicts and the seam), `10x-reviewer` (four headings). Briefs live in `agents/` at the repo root; models and thinking levels live in the `AGENT_MODELS` block of `scripts/install.py`.
 3. **Worktree per chunk.** Scout and coder for chunk `<slug>` work only in `$CWD/.worktree/<slug>` on branch `10x/<slug>`. Parallel edits never collide mid-flight; collisions surface once, at the merge.
 4. **Rounds until done.** A round is scout → code → merge → review. You loop rounds; the user's spec, not your patience, decides when to stop.
 
@@ -20,9 +20,7 @@ Check the team before the first round — a dispatch that fails mid-wave costs t
 Missing → install, then restart the session (agents load at startup):
 
 ```bash
-cd <this skill's directory>
-$EDITOR install.sh   # EDIT-ME block: HARNESS + "<model> [thinking]" per role
-./install.sh
+python3 scripts/install.py   # from the LazyClaude repo root; models → AGENT_MODELS block
 ```
 
 Per-harness detail: `references/INSTALL.md`. Never open a round with a role missing — fall back to single-agent (below) instead.

@@ -2,49 +2,65 @@
 
 Two installs: the **skill** (routing + orchestration) and the **team** (the four subagents it dispatches). The skill works without the team only via the single-agent fallback — install the team.
 
-## 1. The skill
+Both come from one command, run from the repo root:
 
 ```bash
-npx skills add huybui/LazyClaude --skill 10x-implement
+python3 scripts/install.py
 ```
 
-Restart the session after installing — skills and agents load at startup.
+It mounts every brief in `agents/` into every harness it detects, and every skill in `skills/` into `~/.agents/skills/` (+ `~/.claude/skills/` when Claude Code is targeted). Restart the session afterwards — skills and agents load at startup.
 
-## 2. The agents
+## Usage
 
-Briefs live in `agents/`; they carry no models. Models are yours, set in one place — the EDIT-ME block at the top of `install.sh`:
-
-```bash
-cd <skill-dir>            # where npx skills put 10x-implement
-$EDITOR install.sh        # HARNESS + one "<model> [thinking]" line per role
-./install.sh
+```
+python3 scripts/install.py [link|copy|uninstall] [--dry-run] [--all]
+                           [--force] [--harness <name>]...
 ```
 
-Re-run after editing the briefs or the block. It overwrites `10x-*.md` in the agent dir; your config is the block, never the installed files.
+| option | effect |
+|---|---|
+| `link` (default) | skills symlink into the repo (edits propagate live); agent files render into a gitignored `.build/` inside the repo and symlink back — agent edits propagate on the **next run**, so re-run after editing a brief |
+| `copy` | stamped snapshot files everywhere, for machines without the repo |
+| `uninstall` | removes exactly what the installer created; foreign files untouched |
+| `--dry-run` | print the full plan, write nothing |
+| `--all` | target all five harnesses even if their config dirs don't exist |
+| `--harness <name>` | restrict agents to `claude\|zcode\|omp\|grok\|codex` (repeatable) |
+| `--force` | back up a foreign target to `<name>.bak.<n>` before replacing it |
 
-### Per-harness specifics
+Exit codes: `0` success · `1` failure (missing model mapping, foreign target refused) · `2` usage error or reserved agent name · `130` interrupted.
 
-| harness | agent dir | model format | thinking |
-|---|---|---|---|
-| claude | `~/.claude/agents` | plain name: `claude-haiku-4-5` | no field exists — ignored |
-| omp | `~/.omp/agent/agents` | gateway tag: `@task` | `thinkingLevel:` |
-| zcode | `~/.zcode/agents` | fully-qualified, quoted: `custom:builtin%3Azai-coding-plan:GLM-5.3` | `thoughtLevel:` |
+## Destinations
 
-### Default ladder (shipped in the block)
-
-| role | tier | thinking |
+| harness | agents land in | frontmatter injected |
 |---|---|---|
-| 10x-scout | cheapest strong model | low |
-| 10x-coder | workhorse | high |
-| 10x-merger | strongest | max |
-| 10x-reviewer | strongest | max |
+| claude | `~/.claude/agents/<name>.md` | bare `model:` |
+| zcode | `~/.zcode/agents/<name>.md` | quoted `model:`, `injectAgentsMd: true`, `thoughtLevel:` |
+| omp | `~/.omp/agent/agents/<name>.md` | `model: ["…"]`, `thinkingLevel:` |
+| grok | `~/.grok/agents/<name>.md` | `name`/`description` only (grok `model` field unverified — omitted) |
+| codex | `~/.codex/agents/<name>.toml` | generated TOML: `name`, `description`, `developer_instructions`, `model_reasoning_effort` |
 
-The block ships the zcode/GLM-5.3 ladder; commented lines inside it carry the claude and omp equivalents — swap them in.
+A harness is detected iff its config dir exists (`~/.claude`, `~/.zcode`, `~/.omp`, `~/.grok`, `~/.codex`); absent ones are skipped. The installer also maintains the in-repo `.claude/agents → ../agents` link for Claude project-scope loading while you develop.
+
+## Models & thinking levels
+
+Briefs in `agents/` are model-neutral (`name`, `description`, prompt body). Per-harness models and one shared thought level live in the **`AGENT_MODELS` block at the top of `scripts/install.py`** — the one place you edit:
+
+```python
+"10x-coder": {
+    "claude": "claude-sonnet-4-6",
+    "zcode":  "custom:builtin%3Azai-coding-plan:GLM-5.3",
+    "omp":    "@task",
+    "thought": "high",
+},
+```
+
+Defaults ship the zcode/GLM-5.3 ladder (scout `low`, coder `high`, merger/reviewer `max`); swap in your own per harness. A brief missing from the block is a hard failure (exit 1); an agent named like any harness builtin is rejected before anything is written (exit 2). Re-run the installer after editing briefs or the block.
 
 ## Verify
 
 ```bash
 head -7 ~/.zcode/agents/10x-scout.md   # your harness's dir; model + thinking field present
+python3 scripts/test_install.py        # 12 behavioral checks, exit 0
 ```
 
 Then restart the session.
@@ -53,6 +69,8 @@ Then restart the session.
 
 | symptom | fix |
 |---|---|
-| dispatch fails: unknown agent type `10x-scout` | agents not installed, or session predates install → run `./install.sh`, restart session |
-| wrong model running | edit the EDIT-ME block, re-run `./install.sh`, restart session |
-| `HARNESS='…' — want claude\|omp\|zcode` | typo in the block's `HARNESS=` line |
+| dispatch fails: unknown agent type `10x-scout` | agents not installed, or session predates install → run `python3 scripts/install.py`, restart session |
+| wrong model / thinking tier running | edit the `AGENT_MODELS` block in `scripts/install.py`, re-run, restart session |
+| `refuse … (not created by this installer)` | the target file is hand-written; review `--dry-run`, then re-run with `--force` (old file backed up to `<name>.bak.<n>`) |
+| `no model mapping for […]` | add the agent to `AGENT_MODELS` in `scripts/install.py`, re-run |
+| `agent name(s) […] collide with a harness builtin` | rename the brief in `agents/` — the name would silently shadow a builtin |
