@@ -24,7 +24,7 @@ python3 scripts/install.py [link|copy|uninstall] [--dry-run] [--all]
 | `uninstall` | removes exactly what the installer created; foreign files untouched |
 | `--dry-run` | print the full plan, write nothing |
 | `--all` | target all five harnesses even if their config dirs don't exist |
-| `--harness <name>` | restrict agents to `claude\|zcode\|omp\|grok\|codex` (repeatable) |
+| `--harness <name>` | restrict agents to `claude\|zcode\|omp\|grok\|codex` (repeatable); named harnesses are targeted even if undetected |
 | `--force` | back up a foreign target to `<name>.bak.<n>` before replacing it |
 
 Exit codes: `0` success · `1` failure (missing model mapping, foreign target refused) · `2` usage error or reserved agent name · `130` interrupted.
