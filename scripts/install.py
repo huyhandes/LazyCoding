@@ -167,14 +167,19 @@ def toml_string(value: str) -> str:
     return f'"{escaped}"'
 
 
-def render_toml(brief: Brief, thought: str | None) -> str:
+def render_toml(brief: Brief, model: str | None, thought: str | None) -> str:
     lines = [
         TOML_STAMP,
         f"name = {toml_string(brief.name)}",
         f"description = {toml_string(brief.description)}",
         f"developer_instructions = {toml_string(brief.body)}",
     ]
+    if model:
+        lines.append(f"model = {toml_string(model)}")
     if thought:
+        if thought not in CODEX_EFFORT:
+            die(f"unknown thought level '{thought}' for {brief.name} — fix "
+                f"its \"thought\" entry in AGENT_MODELS", 1)
         lines.append(
             f"model_reasoning_effort = {toml_string(CODEX_EFFORT[thought])}")
     return "\n".join(lines) + "\n"
@@ -315,7 +320,7 @@ class Installer:
                 model = mapping.get(harness)
                 thought = mapping.get("thought")
                 if harness == "codex":
-                    content = render_toml(brief, thought)
+                    content = render_toml(brief, model, thought)
                     # Codex: real stamped file (symlinks unverified there).
                     self.ensure_file(agent_dest(home, harness, brief), content)
                     continue

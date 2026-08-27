@@ -50,7 +50,7 @@ Project subagents live canonically in repo-root `agents/<name>.md` (frontmatter:
 - **Body**: imperative, second person, RFC-2119 (`MUST`/`NEVER`/`SHOULD`). Tables and short lists over prose. State the rule, then one example — no rationale essays. SKILL.md stays a router; one topic per file under `references/`.
 - **Python**: 3.10+, stdlib only, type hints, `sys.argv[1]` over argparse, exit codes `0/1/2/130`. Subprocess: fixed arg list, never `shell=True`.
 - **Bash**: `#!/usr/bin/env bash` + `set -euo pipefail`.
-- **Safety**: no unrestricted writes outside the target file, cap input size before any API call, back up out-of-tree under `XDG_DATA_HOME`, restore-and-abort on repeated failure.
+- **Safety**: no unrestricted writes outside the target file, cap input size before any API call, back up out-of-tree under `XDG_DATA_HOME`, restore-and-abort on repeated failure. Spec'd exception: `scripts/install.py --force` backs up a replaced foreign target in place as `<name>.bak.<n>`.
 - No build, lint, or package manager step. Markdown + stdlib Python + bash.
 
 ## Testing & QA

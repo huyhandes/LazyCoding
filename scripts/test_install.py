@@ -26,6 +26,7 @@ ZCODE_MODEL = "custom:builtin%3Azai-coding-plan:GLM-5.3"
 BRIEFS = {
     "10x-scout": ("Fixture scout", "Scout body.\n"),
     "10x-coder": ('Fixture coder', 'Coder "quoted" body.\n'),
+    "10x-merger": ("Fixture merger", "Merger body.\n"),
 }
 
 
@@ -132,6 +133,14 @@ def check_1_link_default(tmp: Path) -> None:
 
 def check_2_codex_toml(tmp: Path) -> None:
     repo = make_repo(tmp)
+    # Give 10x-scout a codex model mapping in the fixture's install.py copy,
+    # so "model present only when mapped" is exercised end to end.
+    script = repo / "scripts" / "install.py"
+    script.write_text(
+        script.read_text(encoding="utf-8").replace(
+            '"omp": "@smol",',
+            '"omp": "@smol",\n        "codex": "fixture-codex-model",'),
+        encoding="utf-8")
     home = make_home(tmp, ["codex"])
     result = run(repo, home)
     assert result.returncode == 0, f"exit {result.returncode}: {result.stderr}"
@@ -148,15 +157,24 @@ def check_2_codex_toml(tmp: Path) -> None:
         assert data["description"] == "Fixture scout", data
         assert data["developer_instructions"] == "Scout body.\n", data
         assert data["model_reasoning_effort"] == "low", data
-        assert "model" not in data, data
+        assert data["model"] == "fixture-codex-model", data
         coder = tomllib.loads(
             (home / ".codex" / "agents" / "10x-coder.toml").read_text(encoding="utf-8"))
         assert coder["developer_instructions"] == 'Coder "quoted" body.\n', coder
         assert coder["model_reasoning_effort"] == "high", coder
+        assert "model" not in coder, "unmapped codex model must be omitted"
+        merger = tomllib.loads(
+            (home / ".codex" / "agents" / "10x-merger.toml").read_text(encoding="utf-8"))
+        assert merger["model_reasoning_effort"] == "high", \
+            "thought max must map to codex high"
+        assert "model" not in merger, merger
     else:
         assert 'developer_instructions = "Scout body.\\n"' in content, content
         assert 'model_reasoning_effort = "low"' in content, content
-        assert not any(ln.startswith("model =") for ln in content.splitlines()), content
+        assert 'model = "fixture-codex-model"' in content, content
+        merger = (home / ".codex" / "agents" / "10x-merger.toml").read_text(encoding="utf-8")
+        assert 'model_reasoning_effort = "high"' in merger, merger
+        assert not any(ln.startswith("model =") for ln in merger.splitlines()), merger
 
 
 def check_3_detection_and_all(tmp: Path) -> None:
