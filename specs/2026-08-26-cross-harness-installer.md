@@ -1,7 +1,7 @@
 # Spec: Cross-harness installer for LazyClaude skills + subagents
 
-Status: ready-for-agent · 2026-08-26 · Evidence base: `research/harness-agents-config.md`
-(Published as a spec file because this repo has no git repo / issue tracker yet.)
+Status: implemented · closed 2026-08-27 (issue #1, tickets #2–#7) · landed on `main` (`36eb432`) · Evidence base: `research/harness-agents-config.md`
+(Mirrored to tracker issue #1; acceptance verified by `python3 scripts/test_install.py` — 12/12 — plus the real-machine migration with `.bak` backups.)
 
 ## Problem Statement
 
