@@ -6,7 +6,7 @@ LazyClaude is **my own** agent skills, packaged for others. Premise: outsource t
 
 Scope: self-developed skills only (`10x-implement`, `officecli`, `optimize-claude-md`, …). Vendored skills stay in `~/.agents/skills` where their installer put them — **never** copy one in here.
 
-Current state: `10x-implement` moved in and symlinked back (see Dev Mount). `officecli` and `optimize-claude-md` still live in `~/.agents/skills`; move them the same way, one at a time.
+Current state: `10x-implement` lives here, mounted out via `scripts/install.py` (see Dev Mount). `officecli` and `optimize-claude-md` still live in `~/.agents/skills`; move them into `skills/` and re-run the installer, one at a time.
 
 ## Layout
 
@@ -14,7 +14,9 @@ Current state: `10x-implement` moved in and symlinked back (see Dev Mount). `off
 skills/<name>/SKILL.md       ← the skill; frontmatter + body (only required file)
 skills/<name>/references/    ← progressive-disclosure detail, loaded on demand
 skills/<name>/scripts/       ← executable helpers (only where an LLM is wasteful/non-deterministic)
-.claude/agents/<name>.md     ← subagents skills delegate to
+agents/<name>.md             ← canonical agent briefs, single source of truth (model-neutral)
+scripts/install.py           ← cross-harness installer: skills + agents, five harnesses
+.claude/agents → ../agents   ← convenience link the installer maintains (Claude project scope)
 README.md                    ← install instructions for others
 ```
 
@@ -27,21 +29,19 @@ npx skills add huybui/LazyClaude --skill 10x-implement -g -a claude-code -y
 
 ## Dev Mount
 
-Symlink, don't copy — `npx skills add .` installs a snapshot copy, so edits stop propagating.
+One command, from the repo root:
 
 ```bash
-n=10x-implement
-mv ~/.agents/skills/$n skills/$n                      # first move only
-rm -rf ~/.agents/skills/$n ~/.claude/skills/$n        # drop stale dir/link
-ln -sfn "$PWD/skills/$n" ~/.agents/skills/$n          # Cursor/Codex/Cline family
-ln -sfn "$PWD/skills/$n" ~/.claude/skills/$n          # Claude Code
+python3 scripts/install.py
 ```
+
+It symlinks every `skills/*` into `~/.agents/skills/` plus `~/.claude/skills/` — edits in the repo propagate live. Agent briefs in `agents/` are rendered per harness (models/thought-levels from the `AGENT_MODELS` block in `scripts/install.py`) into a gitignored `.build/` and symlinked into each detected harness's agent dir — re-run after editing a brief. Absent harnesses are skipped; `copy` mode writes stamped snapshots for end users; `uninstall` removes exactly what the installer created. Detail: `skills/10x-implement/references/INSTALL.md`.
 
 Claude reads only `name` + `description` at startup; the body loads when the description matches. Restart the session after adding a skill.
 
 ## Subagents
 
-Project subagents live in `.claude/agents/<name>.md` (frontmatter: `name`, `description`, optional `tools`, `model`) and are picked up automatically when working inside this repo. `npx skills` installs skills, **not** subagents — so a skill MUST still work when its subagent is absent: describe the delegation in the body, don't hard-depend on a file the installer never copies.
+Project subagents live canonically in repo-root `agents/<name>.md` (frontmatter: `name`, `description`, optional `tools`, `model`); `.claude/agents` is a link there that the installer maintains, and they are picked up automatically when working inside this repo. `npx skills` installs skills, **not** subagents — so a skill MUST still work when its subagent is absent: describe the delegation in the body, don't hard-depend on a file the installer never copies.
 
 ## Conventions
 
