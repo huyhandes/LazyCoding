@@ -34,7 +34,7 @@ zcode) DEST=${DEST:-$HOME/.zcode/agents} ;;
 esac
 
 mkdir -p "$DEST"
-for brief in "$here"/agents/*.md; do
+for brief in "$here"/../../agents/*.md; do
 	name=$(field "$brief" name)
 	[ -n "$name" ] || { echo "$brief: missing name: line" >&2; exit 1; }
 	case $name in
