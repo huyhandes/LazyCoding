@@ -506,7 +506,9 @@ def main(argv: list[str]) -> int:
 
     skipped = [h for h in HARNESSES if h not in targets]
     for h in skipped:
-        installer.say(f"skip   {h} (no {home / CONFIG_ROOT[h]})")
+        root = home / CONFIG_ROOT[h]
+        reason = "not targeted" if root.exists() else f"no {root}"
+        installer.say(f"skip   {h} ({reason})")
 
     installer.install_agents(home, briefs, targets)
     installer.install_skills(home, targets)
