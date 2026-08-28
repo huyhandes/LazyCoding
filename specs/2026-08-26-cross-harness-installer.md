@@ -176,3 +176,10 @@ are retired in favor of this one tool.
 - Suggested build path: `10x-implement` on this spec, chunked (1: script core + mapping table;
   2: skills mounting + safety/uninstall; 3: test suite + migration of legacy copies + docs
   rewrite).
+- Post-implementation finding (2026-08-28): the research's "remaining unknown #1" resolved
+  against symlinks — zcode's agent loader (`zcode.cjs`, `loadZCodeAgentProfiles`) collects
+  entries via `isFile()`, so **symlinked agent files are silently ignored** in fresh sessions.
+  Link mode therefore writes agents as stamped real rendered files into each harness dir
+  (skills remain symlinked directories, which every harness follows). This supersedes the
+  original "symlink + .build/ indirection" wording in Implementation Decisions; the
+  ours-predicate gains stamped files in link mode and the `.build/` scratch dir is retired.

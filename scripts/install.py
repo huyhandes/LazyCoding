@@ -5,11 +5,11 @@ One invocation mounts every agent brief in agents/ into every detected
 harness's agent dir (per-harness frontmatter injected) and every skill in
 skills/ into ~/.agents/skills/ plus ~/.claude/skills/.
 
-Modes: link (default — agents render into .build/ and symlink back into
-this repo; skills symlink directly, so skill edits propagate live and agent
-edits propagate on the next run), copy (stamped snapshot files), uninstall
-(removes exactly what this tool created). Codex always gets real TOML files
-(symlink-following for Codex agent files is unverified).
+Modes: link (default — skills symlink into this repo so edits propagate
+live; agents are written as stamped rendered files, refreshed on each run:
+zcode's agent loader ignores symlinked files, and agent frontmatter differs
+per harness anyway), copy (stamped snapshot files everywhere), uninstall
+(removes exactly what this tool created).
 
 Stdlib only, Python 3.10+. Detail: skills/10x-implement/references/INSTALL.md
 
@@ -214,16 +214,17 @@ def is_ours(path: Path) -> bool:
         except OSError:
             return False
         return resolved == REPO or REPO in resolved.parents
+    stamp = STAMP.encode("utf-8")
     if path.is_file():
         try:
-            return STAMP in path.read_text(encoding="utf-8")
+            return stamp in path.read_bytes()
         except OSError:
             return False
     if path.is_dir():
         skill_md = path / "SKILL.md"
         if skill_md.is_file():
             try:
-                return STAMP in skill_md.read_text(encoding="utf-8")
+                return stamp in skill_md.read_bytes()
             except OSError:
                 return False
     return False
@@ -243,18 +244,6 @@ class Installer:
 
     def warn(self, message: str) -> None:
         print(message, file=sys.stderr)
-
-    def render(self, path: Path, content: str) -> None:
-        if path.is_file():
-            try:
-                if path.read_text(encoding="utf-8") == content:
-                    return
-            except OSError:
-                pass
-        self.say(f"render {path}")
-        if not self.dry:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(content, encoding="utf-8")
 
     def ensure_symlink(self, dest: Path, target: Path,
                        link_text: str | None = None) -> None:
@@ -276,7 +265,7 @@ class Installer:
                 if dest.read_text(encoding="utf-8") == content:
                     self.say(f"ok     {dest}")
                     return
-            except OSError:
+            except (OSError, UnicodeDecodeError):
                 pass
         if dest.exists() or dest.is_symlink():
             if not self.prepare_replace(dest):
@@ -321,18 +310,14 @@ class Installer:
                 thought = mapping.get("thought")
                 if harness == "codex":
                     content = render_toml(brief, model, thought)
-                    # Codex: real stamped file (symlinks unverified there).
-                    self.ensure_file(agent_dest(home, harness, brief), content)
-                    continue
-                rendered = render_markdown(brief, harness, model, thought)
-                if self.mode == "link":
-                    build = REPO / ".build" / harness / (brief.name + ".md")
-                    self.render(build, rendered)
-                    self.ensure_symlink(agent_dest(home, harness, brief), build)
                 else:
-                    stamped = render_markdown(brief, harness, model, thought,
+                    # Real stamped files, not symlinks: zcode's agent loader
+                    # collects entries via isFile() and so ignores symlinked
+                    # agent files (verified in the zcode.cjs bundle). Skills
+                    # are symlinked directories, which every harness follows.
+                    content = render_markdown(brief, harness, model, thought,
                                               stamp=True)
-                    self.ensure_file(agent_dest(home, harness, brief), stamped)
+                self.ensure_file(agent_dest(home, harness, brief), content)
 
     def install_skills(self, home: Path, targets: list[str]) -> None:
         skills_dir = REPO / "skills"
@@ -382,7 +367,7 @@ class Installer:
         removed += self.uninstall_dir(home / ".agents" / "skills")
         removed += self.uninstall_dir(home / ".claude" / "skills")
         build = REPO / ".build"
-        if build.is_dir():
+        if build.is_dir():  # legacy: pre-real-file link mode rendered here
             self.say(f"rm     {build}")
             if not self.dry:
                 shutil.rmtree(build)

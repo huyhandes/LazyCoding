@@ -35,7 +35,7 @@ One command, from the repo root:
 python3 scripts/install.py
 ```
 
-It symlinks every `skills/*` into `~/.agents/skills/` plus `~/.claude/skills/` — edits in the repo propagate live. Agent briefs in `agents/` are rendered per harness (models/thought-levels from the `AGENT_MODELS` block in `scripts/install.py`) into a gitignored `.build/` and symlinked into each detected harness's agent dir — re-run after editing a brief. Absent harnesses are skipped; `copy` mode writes stamped snapshots for end users; `uninstall` removes exactly what the installer created. Detail: `skills/10x-implement/references/INSTALL.md`.
+It symlinks every `skills/*` into `~/.agents/skills/` plus `~/.claude/skills/` — edits in the repo propagate live. Agent briefs in `agents/` are rendered per harness (models/thought-levels from the `AGENT_MODELS` block in `scripts/install.py`) into stamped real files in each detected harness's agent dir — real files, not symlinks, because zcode's agent loader ignores symlinked files; re-run after editing a brief. Absent harnesses are skipped; `copy` mode writes stamped snapshots for end users; `uninstall` removes exactly what the installer created. Detail: `skills/10x-implement/references/INSTALL.md`.
 
 Claude reads only `name` + `description` at startup; the body loads when the description matches. Restart the session after adding a skill.
 

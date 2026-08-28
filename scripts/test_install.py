@@ -22,6 +22,7 @@ AGENT_DIR = {"claude": ".claude/agents", "zcode": ".zcode/agents",
              "omp": ".omp/agent/agents", "grok": ".grok/agents",
              "codex": ".codex/agents"}
 ZCODE_MODEL = "custom:builtin%3Azai-coding-plan:GLM-5.3"
+MD_STAMP = "<!-- installed-by: lazyclaude scripts/install.py -->"
 
 BRIEFS = {
     "10x-scout": ("Fixture scout", "Scout body.\n"),
@@ -100,12 +101,12 @@ def check_1_link_default(tmp: Path) -> None:
 
     for h in ["claude", "zcode", "omp", "grok"]:
         dest = home / AGENT_DIR[h] / "10x-scout.md"
-        assert dest.is_symlink(), f"{dest} not a symlink"
-        build_dir = (repo / ".build" / h).resolve()
-        resolved = dest.resolve()
-        assert str(resolved).startswith(str(build_dir)), \
-            f"{dest} resolves outside repo .build: {resolved}"
-        assert resolved.is_file(), f"{resolved} missing"
+        # Agents are real stamped files: zcode's loader ignores symlinked
+        # agent files, so link mode must not symlink them.
+        assert dest.is_file() and not dest.is_symlink(), \
+            f"{dest} not a real file"
+        assert MD_STAMP in dest.read_text(encoding="utf-8"), f"{dest} unstamped"
+    assert not (repo / ".build").exists(), "agents must not render into .build"
 
     zcode = (home / AGENT_DIR["zcode"] / "10x-scout.md").read_text(encoding="utf-8")
     assert 'model: "%s"' % ZCODE_MODEL in zcode, zcode
@@ -185,7 +186,7 @@ def check_3_detection_and_all(tmp: Path) -> None:
     assert not (home / ".grok").exists(), "absent harness was not skipped"
     result = run(repo, home, "--all")
     assert result.returncode == 0, result.stderr
-    assert (home / ".grok" / "agents" / "10x-scout.md").is_symlink(), \
+    assert (home / ".grok" / "agents" / "10x-scout.md").is_file(), \
         "--all did not populate grok"
 
 
@@ -194,7 +195,7 @@ def check_4_harness_filter(tmp: Path) -> None:
     home = make_home(tmp, ["claude", "zcode"])
     result = run(repo, home, "--harness", "claude")
     assert result.returncode == 0, result.stderr
-    assert (home / ".claude" / "agents" / "10x-scout.md").is_symlink()
+    assert (home / ".claude" / "agents" / "10x-scout.md").is_file()
     zcode_agents = home / ".zcode" / "agents"
     assert not zcode_agents.exists() or not any(zcode_agents.iterdir()), \
         "--harness claude touched zcode"
@@ -256,7 +257,7 @@ def check_9_foreign_and_force(tmp: Path) -> None:
     assert foreign.read_text(encoding="utf-8") == "precious hand-edit\n", \
         "foreign file was modified"
     assert "--force" in (result.stdout + result.stderr)
-    assert (home / ".claude" / "agents" / "10x-scout.md").is_symlink(), \
+    assert (home / ".claude" / "agents" / "10x-scout.md").is_file(), \
         "other harnesses should still install"
 
     result = run(repo, home, "--force")
@@ -264,8 +265,10 @@ def check_9_foreign_and_force(tmp: Path) -> None:
     backup = home / ".zcode" / "agents" / "10x-scout.md.bak.1"
     assert backup.read_text(encoding="utf-8") == "precious hand-edit\n", \
         "backup lost the original bytes"
-    assert (home / ".zcode" / "agents" / "10x-scout.md").is_symlink(), \
-        "--force did not replace with our symlink"
+    replaced = home / ".zcode" / "agents" / "10x-scout.md"
+    assert replaced.is_file() and not replaced.is_symlink(), \
+        "--force did not replace with our stamped file"
+    assert MD_STAMP in replaced.read_text(encoding="utf-8")
 
 
 def check_10_copy_mode(tmp: Path) -> None:
@@ -312,6 +315,9 @@ def check_11_uninstall(tmp: Path) -> None:
     foreign_skill.mkdir(parents=True)
     (foreign_skill / "SKILL.md").write_text("---\nname: officecli\n---\n",
                                             encoding="utf-8")
+    # foreign binary file next to scanned entries — must not crash is_ours
+    foreign_blob = home / ".agents" / "skills" / "icon.png"
+    foreign_blob.write_bytes(bytes([0x89, 0x50, 0x4E, 0x47, 0xB8, 0xFF]) * 4)
     assert run(repo, home, "uninstall").returncode == 0
     assert not (home / ".claude" / "agents" / "10x-scout.md").exists(), \
         "uninstall left stamped copy"
@@ -320,6 +326,8 @@ def check_11_uninstall(tmp: Path) -> None:
     assert foreign_agent.read_text(encoding="utf-8") == "mine\n", \
         "uninstall touched a foreign agent"
     assert (foreign_skill / "SKILL.md").is_file(), "uninstall touched a foreign skill"
+    assert foreign_blob.read_bytes()[:4] == b"\x89PNG", \
+        "uninstall touched a foreign binary"
 
 
 def check_12_usage_errors(tmp: Path) -> None:

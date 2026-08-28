@@ -14,7 +14,7 @@ One command mounts every skill and every agent into every harness it finds on yo
 
 ```bash
 git clone https://github.com/huybui/LazyClaude && cd LazyClaude
-python3 scripts/install.py             # link mode (default): edits in the repo propagate
+python3 scripts/install.py             # default: skills stay linked to the repo
 python3 scripts/install.py copy        # snapshot files instead of links
 python3 scripts/install.py uninstall   # removes exactly what the installer created
 ```

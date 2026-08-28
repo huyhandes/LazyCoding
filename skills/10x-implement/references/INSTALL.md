@@ -19,7 +19,7 @@ python3 scripts/install.py [link|copy|uninstall] [--dry-run] [--all]
 
 | option | effect |
 |---|---|
-| `link` (default) | skills symlink into the repo (edits propagate live); agent files render into a gitignored `.build/` inside the repo and symlink back — agent edits propagate on the **next run**, so re-run after editing a brief |
+| `link` (default) | skills symlink into the repo (edits propagate live); agents are written as stamped rendered files into each harness's dir and refreshed on each run — re-run after editing a brief. Agents are real files, not symlinks: zcode's agent loader ignores symlinked files, and per-harness frontmatter differs anyway |
 | `copy` | stamped snapshot files everywhere, for machines without the repo |
 | `uninstall` | removes exactly what the installer created; foreign files untouched |
 | `--dry-run` | print the full plan, write nothing |
