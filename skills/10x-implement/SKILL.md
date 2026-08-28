@@ -9,7 +9,7 @@ Implement the work described by the spec or tickets at 10x speed. You orchestrat
 Four multipliers do the work — name them, don't restate them:
 
 1. **Parallel AFK.** One message, one subagent call per chunk. Stay out of their way until they return.
-2. **A team, not clones.** Four roles on tiered models: `10x-scout` (cited evidence), `10x-coder` (ponytail ultra + tdd), `10x-merger` (conflicts and the seam), `10x-reviewer` (four headings). Briefs live in `agents/` at the repo root; models and thinking levels live in the `AGENT_MODELS` block of `scripts/install.py`.
+2. **A team, not clones.** Four roles on tiered models, all on `ponytail` ultra: `10x-scout` (cited evidence), `10x-coder` (+ `tdd`), `10x-merger` (conflicts and the seam, + `fable-thinking`), `10x-reviewer` (four headings, + `fable-thinking`). Briefs live in `agents/` at the repo root; models and thinking levels live in the `AGENT_MODELS` block of `scripts/install.py`.
 3. **Worktree per chunk.** Scout and coder for chunk `<slug>` work only in `$CWD/.worktree/<slug>` on branch `10x/<slug>`. Parallel edits never collide mid-flight; collisions surface once, at the merge.
 4. **Rounds until done.** A round is scout → code → merge → review. You loop rounds; the user's spec, not your patience, decides when to stop.
 
@@ -70,4 +70,4 @@ Not done: turn each hard finding and each unmet criterion into a chunk, reusing 
 
 Parallel beats a team only when the chunks are genuinely independent. One tightly-coupled change with no natural seams: skip the decomposition, run `ponytail` ultra and `tdd` yourself, then dispatch just the reviewer. Forcing a four-role round onto coupled work buys merge conflicts, not speed.
 
-Skills the team invokes by name — spell them however your harness does: `ponytail` (ultra), `tdd`, `code-review`, `ponytail-review`, `resolving-merge-conflicts`.
+Skills the team invokes by name — spell them however your harness does: `ponytail` (ultra, every role), `tdd`, `code-review`, `ponytail-review`, `resolving-merge-conflicts`, `fable-thinking` (merger, reviewer).

@@ -5,6 +5,8 @@ description: "Integrates every chunk branch into 10x/integrate and resolves conf
 
 You run in the **main working tree**, never inside a chunk worktree.
 
+Invoke `ponytail` at ultra level: the laziest resolution that holds both intents — collapse, don't reconcile. Invoke `fable-thinking` on every judgment call: conflict resolutions, semantic conflicts, seam-failure calls. Do not restate their contents.
+
 **Inputs** — from the orchestrator: ordered slug list (dependency order), base branch. Verify what is checked out: `git worktree list`.
 
 **Sequence**
@@ -12,9 +14,9 @@ You run in the **main working tree**, never inside a chunk worktree.
 2. For each slug in dependency order: `git merge --no-ff 10x/<slug>`.
 3. Resolve all conflicts before advancing to the next slug.
 
-**Conflict resolution** — invoke the `resolving-merge-conflicts` skill. Read both sides' commits and tests to understand intent. NEVER accept one side wholesale; NEVER delete a test to make a merge apply.
+**Conflict resolution** — invoke the `resolving-merge-conflicts` skill. Read both sides' commits and tests to understand intent. NEVER accept one side wholesale; NEVER delete a test to make a merge apply. Every resolution carries an invariant ledger — **preserves** / **breaks** / **risks** — in your working notes.
 
-**Semantic conflicts** — both sides compile but disagree: duplicate helper, renamed field, two migrations claiming the same version, two implementations of one contract. Collapse onto the better implementation and update every caller.
+**Semantic conflicts** — both sides compile but disagree: duplicate helper, renamed field, two migrations claiming the same version, two implementations of one contract. The gates will not surface these: enumerate them deliberately per merge. Collapse onto the better implementation and update every caller.
 
 **Gates** — run once on the fully integrated tree, in order:
 
