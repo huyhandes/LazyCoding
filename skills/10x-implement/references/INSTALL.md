@@ -36,31 +36,33 @@ Exit codes: `0` success · `1` failure (missing model mapping, foreign target re
 | claude | `~/.claude/agents/<name>.md` | bare `model:` |
 | zcode | `~/.zcode/agents/<name>.md` | quoted `model:`, `injectAgentsMd: true`, `thoughtLevel:` |
 | omp | `~/.omp/agent/agents/<name>.md` | `model: ["…"]`, `thinkingLevel:` |
-| grok | `~/.grok/agents/<name>.md` | `name`/`description` only (grok `model` field unverified — omitted) |
-| codex | `~/.codex/agents/<name>.toml` | generated TOML: `name`, `description`, `developer_instructions`, `model_reasoning_effort` |
+| grok | `~/.grok/agents/<name>.md` + `[subagents.models]` pins in `~/.grok/config.toml` | `name`/`description` only (grok .md files have no model field); per-type models go to the config table |
+| codex | `~/.codex/agents/<name>.toml` | generated TOML: `name`, `description`, `developer_instructions`, `model`, `model_reasoning_effort` |
 
 A harness is detected iff its config dir exists (`~/.claude`, `~/.zcode`, `~/.omp`, `~/.grok`, `~/.codex`); absent ones are skipped. The installer also maintains the in-repo `.claude/agents → ../agents` link for Claude project-scope loading while you develop.
 
 ## Models & thinking levels
 
-Briefs in `agents/` are model-neutral (`name`, `description`, prompt body). Per-harness models and one shared thought level live in the **`AGENT_MODELS` block at the top of `scripts/install.py`** — the one place you edit:
+Briefs in `agents/` are model-neutral (`name`, `description`, prompt body). Per-harness models and the thought ladder live in the **`AGENT_MODELS` block at the top of `scripts/install.py`** — the one place you edit. `thought` is one string shared by every harness, or a dict of per-harness overrides (missing harness → field omitted):
 
 ```python
 "10x-coder": {
-    "claude": "claude-sonnet-4-6",
+    "claude": "claude-sonnet-5",
     "zcode":  "custom:builtin%3Azai-coding-plan:GLM-5.3",
     "omp":    "@task",
+    "codex":  "gpt-5.6-terra",
+    "grok":   "grok-4.6",
     "thought": "high",
 },
 ```
 
-Defaults ship the zcode/GLM-5.3 ladder (scout `low`, coder `high`, merger/reviewer `max`); swap in your own per harness. A brief missing from the block is a hard failure (exit 1); an agent named like any harness builtin is rejected before anything is written (exit 2). Re-run the installer after editing briefs or the block.
+Defaults (picked Sept-2026, scoring + sources in `research/model-defaults.md`): fast cheap scout (Haiku / GLM-5.3-Flash @ high — Flash under-reasons at low / Luna / `@smol`), mid-tier coder (Sonnet 5 / GLM-5.3 high / Terra / `@task`), strongest reasoning on merger+reviewer (Opus 5 / GLM-5.3 max / `gpt-5.6` @ xhigh / `@slow`); grok uses `grok-4.6` for every role until a verified fast tier exists. A brief missing from the block is a hard failure (exit 1); an agent named like any harness builtin is rejected before anything is written (exit 2). Re-run the installer after editing briefs or the block.
 
 ## Verify
 
 ```bash
 head -7 ~/.zcode/agents/10x-scout.md   # your harness's dir; model + thinking field present
-python3 scripts/test_install.py        # 12 behavioral checks, exit 0
+python3 scripts/test_install.py        # 13 behavioral checks, exit 0
 ```
 
 Then restart the session.

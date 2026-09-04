@@ -34,37 +34,52 @@ from pathlib import Path
 from typing import NamedTuple
 
 # ── EDIT ME: models & thought levels ────────────────────────────────────────
-# One entry per agent brief. Per-harness model + one shared thought level.
-# A harness key may be absent — the field is then omitted for that harness
-# (grok-style neutral). "thought" feeds zcode thoughtLevel, omp thinkingLevel
-# and codex model_reasoning_effort (via CODEX_EFFORT).
-AGENT_MODELS: dict[str, dict[str, str]] = {
+# One entry per agent brief, picked Sept-2026 (research/model-defaults.md):
+# smallest fast model for the scout, mid tier for the coder, strongest
+# reasoning for merger+reviewer. A harness key may be absent — the field is
+# then omitted for that harness. "thought" feeds zcode thoughtLevel, omp
+# thinkingLevel and codex model_reasoning_effort (via CODEX_EFFORT); it is
+# a string shared by every harness, or a dict of per-harness overrides
+# (missing harness → field omitted). "grok" never lands in agent frontmatter
+# (grok .md files have no model field) — it pins via [subagents.models] in
+# ~/.grok/config.toml (grok-build user-guide 16-subagents.md).
+AGENT_MODELS: dict[str, dict[str, str | dict[str, str]]] = {
     "10x-scout": {
         "claude": "claude-haiku-4-5",
-        "zcode": "custom:builtin%3Azai-coding-plan:GLM-5.3",
+        "zcode": "custom:builtin%3Azai-coding-plan:GLM-5.3-Flash",
         "omp": "@smol",
-        "thought": "low",
+        "codex": "gpt-5.6-luna",
+        "grok": "grok-build-0.1",
+        # Flash under-reasons at low effort — its quality tier starts at
+        # high; the other harnesses keep the fast low-effort scout.
+        "thought": {"zcode": "high", "omp": "low", "codex": "low"},
     },
     "10x-coder": {
-        "claude": "claude-sonnet-4-6",
+        "claude": "claude-sonnet-5",
         "zcode": "custom:builtin%3Azai-coding-plan:GLM-5.3",
         "omp": "@task",
+        "codex": "gpt-5.6-terra",
+        "grok": "grok-4.6",
         "thought": "high",
     },
     "10x-merger": {
         "claude": "claude-opus-5",
         "zcode": "custom:builtin%3Azai-coding-plan:GLM-5.3",
         "omp": "@slow",
+        "codex": "gpt-5.6",
+        "grok": "grok-4.6",
         "thought": "max",
     },
     "10x-reviewer": {
         "claude": "claude-opus-5",
         "zcode": "custom:builtin%3Azai-coding-plan:GLM-5.3",
         "omp": "@slow",
+        "codex": "gpt-5.6",
+        "grok": "grok-4.6",
         "thought": "max",
     },
 }
-CODEX_EFFORT = {"low": "low", "high": "high", "max": "high"}
+CODEX_EFFORT = {"low": "low", "high": "high", "max": "xhigh"}
 # ────────────────────────────────────────────────────────────────────────────
 
 HARNESSES = ("claude", "zcode", "omp", "grok", "codex")
@@ -154,7 +169,8 @@ def render_markdown(brief: Brief, harness: str, model: str | None,
             fm.append(f'model: ["{model}"]')
         if thought:
             fm.append(f"thinkingLevel: {thought}")
-    # grok: name/description only (grok model field UNVERIFIED — omit)
+    # grok: name/description only — grok .md files have no model field;
+    # models pin via [subagents.models] in config.toml (install_grok_models)
     out = "\n".join(fm) + "\n---\n"
     if stamp:
         out += MD_STAMP + "\n"
@@ -183,6 +199,77 @@ def render_toml(brief: Brief, model: str | None, thought: str | None) -> str:
         lines.append(
             f"model_reasoning_effort = {toml_string(CODEX_EFFORT[thought])}")
     return "\n".join(lines) + "\n"
+
+
+# ── grok per-type model pins ────────────────────────────────────────────────
+# grok agent .md files carry no model field; the documented per-type override
+# is the [subagents.models] table in ~/.grok/config.toml ("Per-type model
+# overrides apply for any parent" — grok-build user-guide 16-subagents.md).
+# config.toml is a foreign shared file, so the patch is surgical: only our
+# 10x-* keys inside that one table are ever touched.
+
+GROK_MODELS_SECTION = "subagents.models"
+GROK_KEY_PREFIX = "10x-"
+
+
+def grok_key_of(line: str) -> str:
+    """Bare key of a TOML key line ('' when the line is not one)."""
+    stripped = line.strip()
+    if not stripped or stripped.startswith(("#", "[")) or "=" not in stripped:
+        return ""
+    return stripped.split("=", 1)[0].strip().strip('"').strip("'")
+
+
+def patch_grok_config(text: str,
+                      wanted: dict[str, str]) -> tuple[str, bool] | None:
+    """Insert/replace/remove our 10x-* keys in [subagents.models].
+
+    wanted maps agent name → model; an empty dict strips our keys (and the
+    table itself when nothing but comments remains). The table is appended
+    at EOF when missing. Foreign keys and every other section are left
+    byte-identical. Returns (new_text, changed), or None when the config
+    defines models as an inline table (`models = {…}` under [subagents]),
+    which TOML forbids extending — caller warns and skips."""
+    lines = text.splitlines(keepends=True)
+    start = None
+    end = len(lines)
+    for i, ln in enumerate(lines):
+        stripped = ln.strip()
+        if stripped.startswith("[") and "]" in stripped:
+            name = stripped[1:stripped.index("]")].strip()
+            if name == GROK_MODELS_SECTION and start is None:
+                start = i + 1
+            elif start is not None:
+                end = i
+                break
+    if start is None:
+        if not wanted:
+            return text, False
+        if any(grok_key_of(ln) == "models" and "{" in ln for ln in lines):
+            return None
+        base = text
+        if base and not base.endswith("\n"):
+            base += "\n"
+        if base and not base.endswith("\n\n"):
+            base += "\n"
+        addition = (f"[{GROK_MODELS_SECTION}]\n"
+                    + "".join(f'{k} = "{v}"\n'
+                              for k, v in sorted(wanted.items())))
+        return base + addition, True
+    header = lines[start - 1]
+    kept = [ln for ln in lines[start:end]
+            if not grok_key_of(ln).startswith(GROK_KEY_PREFIX)]
+    if wanted:
+        lines[start - 1:end] = (
+            [header]
+            + [f'{k} = "{v}"\n' for k, v in sorted(wanted.items())]
+            + kept)
+    elif any(grok_key_of(ln) for ln in kept):
+        lines[start - 1:end] = [header] + kept
+    else:  # nothing but our comments/blanks would remain — drop the table
+        lines[start - 1:end] = []
+    new = "".join(lines)
+    return new, new != text
 
 
 # ── paths / ours-predicate ──────────────────────────────────────────────────
@@ -308,6 +395,8 @@ class Installer:
                 mapping = AGENT_MODELS[brief.name]
                 model = mapping.get(harness)
                 thought = mapping.get("thought")
+                if isinstance(thought, dict):
+                    thought = thought.get(harness)
                 if harness == "codex":
                     content = render_toml(brief, model, thought)
                 else:
@@ -318,6 +407,34 @@ class Installer:
                     content = render_markdown(brief, harness, model, thought,
                                               stamp=True)
                 self.ensure_file(agent_dest(home, harness, brief), content)
+
+    def install_grok_models(self, home: Path, briefs: list[Brief]) -> None:
+        """Pin 10x-* per-type models in ~/.grok/config.toml."""
+        wanted = {b.name: AGENT_MODELS[b.name]["grok"] for b in briefs
+                  if AGENT_MODELS[b.name].get("grok")}
+        if not wanted:
+            return
+        path = home / ".grok" / "config.toml"
+        try:
+            text = path.read_text(encoding="utf-8") if path.is_file() else ""
+        except (OSError, UnicodeDecodeError) as exc:
+            self.warn(f"refuse {path} ({exc})")
+            self.refusals += 1
+            return
+        result = patch_grok_config(text, wanted)
+        if result is None:
+            self.refusals += 1
+            self.warn(f"refuse {path} (models defined as an inline table — "
+                      f"pin [subagents.models] by hand)")
+            return
+        new, changed = result
+        if not changed:
+            self.say(f"ok     {path}")
+            return
+        self.say(f"patch  {path} ({', '.join(sorted(wanted))})")
+        if not self.dry:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(new, encoding="utf-8")
 
     def install_skills(self, home: Path, targets: list[str]) -> None:
         skills_dir = REPO / "skills"
@@ -376,7 +493,30 @@ class Installer:
             self.say(f"rm     {link}")
             if not self.dry:
                 link.unlink()
+        self.uninstall_grok_models(home)
         self.say(f"uninstalled {removed} item(s); foreign files untouched")
+
+    def uninstall_grok_models(self, home: Path) -> None:
+        path = home / ".grok" / "config.toml"
+        if not path.is_file():
+            return
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            return
+        result = patch_grok_config(text, {})
+        if result is None:
+            self.warn(f"keep   {path} (inline models table — edit by hand)")
+            return
+        new, changed = result
+        if not changed:
+            return
+        self.say(f"patch  {path} (drop 10x-* model pins)")
+        if not self.dry:
+            if new.strip():
+                path.write_text(new, encoding="utf-8")
+            else:  # only our now-empty table ever leaves the file blank
+                path.unlink()
 
     def uninstall_dir(self, directory: Path) -> int:
         if not directory.is_dir():
@@ -496,6 +636,8 @@ def main(argv: list[str]) -> int:
         installer.say(f"skip   {h} ({reason})")
 
     installer.install_agents(home, briefs, targets)
+    if "grok" in targets:
+        installer.install_grok_models(home, briefs)
     installer.install_skills(home, targets)
     installer.convenience_link()
 

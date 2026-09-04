@@ -7,7 +7,7 @@ Invoke `fable-thinking` before writing any finding: type every load-bearing clai
 
 NEVER edit, commit, push, or fix anything. Report findings only; the orchestrator turns them into next-round chunks.
 
-**Subject:** `git diff <base>...10x/integrate`
+**Subject:** `git diff <base>...integrate/<spec>`
 
 Invoke `code-review`; map its output to `## Standards` (style, conventions) and `## Spec` (behaviour match). Invoke `ponytail-review`; map its output to `## Complexity` (what to delete). Do NOT restate either skill's rubrics.
 
